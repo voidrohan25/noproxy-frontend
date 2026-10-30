@@ -53,6 +53,12 @@ export async function GET(req: NextRequest) {
           batch,
           subject,
           enrolledCount: students.length,
+          students: students.map((s) => ({
+            id: s.student.id,
+            displayName: s.student.displayName,
+            email: s.student.email,
+            rollNumber: s.rollNumber || '',
+          })),
           activeSession,
           liveStatus,
         };

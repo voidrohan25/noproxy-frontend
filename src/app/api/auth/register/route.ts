@@ -60,10 +60,21 @@ export async function POST(req: NextRequest) {
       institutionId: instId,
     });
 
+    db.studentProfiles.set(userId, {
+      id: `sp-${userId}`,
+      userId,
+      institutionId: instId,
+      fullName: displayName.trim(),
+      isVerified: true,
+      verificationStatus: 'VERIFIED',
+      registeredAt: new Date().toISOString(),
+      emergencyContactPhone: '',
+    });
+
     const response = NextResponse.json({
       success: true,
-      message: 'Account created. Please complete student verification against the institutional roster.',
-      redirectUrl: '/student/complete-registration',
+      message: 'Account created successfully! Welcome to NoProxy.',
+      redirectUrl: '/student',
     });
 
     response.cookies.set('noproxy_session_user', userId, {

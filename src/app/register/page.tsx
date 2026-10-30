@@ -35,7 +35,7 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, displayName }),
+        body: JSON.stringify({ email: email.trim(), password: password.trim(), displayName: displayName.trim() }),
       });
 
       const data = await res.json();
@@ -46,8 +46,7 @@ export default function RegisterPage() {
         return;
       }
 
-      // Next step: student must cross-check their Student ID with the authoritative institutional roster
-      router.push('/student/complete-registration');
+      router.push('/student');
     } catch {
       setErrorMessage('Network error connecting to registration service.');
       setLoading(false);
@@ -55,87 +54,84 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-[#F8FAFC]">
       <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 p-8 shadow-sm space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-gradient-to-tr from-indigo-900 to-indigo-700 text-white rounded-2xl mx-auto flex items-center justify-center shadow-md">
-            <ShieldCheck className="w-7 h-7 text-indigo-200" />
+          <div className="w-12 h-12 bg-[#172554] text-white rounded-2xl mx-auto flex items-center justify-center shadow-md">
+            <ShieldCheck className="w-7 h-7 text-blue-400" />
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">
             Student Registration
           </h1>
-          <p className="text-xs text-slate-600">
-            Create an account to bind your mobile device and track attendance.
+          <p className="text-xs text-[#64748B]">
+            Create your account using Full Name and Email Address. No roll numbers required.
           </p>
         </div>
 
         {errorMessage && (
-          <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold flex items-start gap-2.5">
+          <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-900 rounded-xl text-xs font-semibold flex items-start gap-2.5">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         <form onSubmit={handleRegister} className="space-y-4 text-xs">
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Full Legal Name</label>
+          <div className="space-y-1.5">
+            <label className="block font-bold text-slate-700">Full Name</label>
             <div className="relative">
-              <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="text"
                 required
                 placeholder="e.g. Priya Singh"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-900"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-slate-900"
               />
             </div>
-            <span className="text-[10px] text-slate-500 mt-0.5 block">
-              Must match your official name on the institution&apos;s roster.
-            </span>
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Email Address</label>
+          <div className="space-y-1.5">
+            <label className="block font-bold text-slate-700">Email Address</label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="email"
                 required
                 placeholder="priya.singh@student.edu"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-900"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-slate-900"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Create Password</label>
+          <div className="space-y-1.5">
+            <label className="block font-bold text-slate-700">Password</label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="password"
                 required
-                placeholder="Minimum 8 characters"
+                placeholder="At least 8 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-900"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-slate-900"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Confirm Password</label>
+          <div className="space-y-1.5">
+            <label className="block font-bold text-slate-700">Confirm Password</label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="password"
                 required
                 placeholder="Re-enter password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-slate-900"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-slate-900"
               />
             </div>
           </div>
@@ -143,22 +139,22 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-indigo-900 hover:bg-indigo-950 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {loading ? (
               <span>Creating Account...</span>
             ) : (
               <>
-                <span>Continue to Institutional Identity Match</span>
-                <ArrowRight className="w-4 h-4 text-indigo-300" />
+                <span>Complete Registration</span>
+                <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </form>
 
-        <div className="pt-2 text-center text-xs text-slate-600 border-t border-slate-100">
-          <span>Already have an account? </span>
-          <Link href="/login" className="font-bold text-indigo-700 hover:text-indigo-900 underline">
+        <div className="text-center text-xs text-slate-500">
+          Already have an account?{' '}
+          <Link href="/login" className="font-bold text-blue-600 hover:text-blue-700 hover:underline">
             Sign In
           </Link>
         </div>

@@ -14,20 +14,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, email, password, batchIds, subjectIds, actorId, institutionId } = body;
 
-    if (!name || !email || !batchIds || !subjectIds) {
+    if (!name || !email) {
       return NextResponse.json(
-        { error: 'Missing required parameters: name, email, batchIds, or subjectIds.' },
+        { error: 'Trainer name and email address are required.' },
         { status: 400 }
       );
     }
 
     const result = db.createTrainerAccount({
       institutionId: institutionId || '11111111-1111-1111-1111-111111111111',
-      name,
-      email,
-      password,
-      batchIds,
-      subjectIds,
+      name: name.trim(),
+      email: email.trim(),
+      password: password || 'Trainer@2026!',
+      batchIds: Array.isArray(batchIds) ? batchIds : [],
+      subjectIds: Array.isArray(subjectIds) ? subjectIds : [],
       actorId: actorId || 'admin',
     });
 
