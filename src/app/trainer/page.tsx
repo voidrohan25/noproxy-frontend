@@ -22,6 +22,7 @@ import {
   FileSpreadsheet,
   Clock,
   ChevronRight,
+  Search,
 } from 'lucide-react';
 import { DynamicQRDisplay } from '@/components/DynamicQRDisplay';
 
@@ -64,6 +65,10 @@ export default function TrainerPortalPage() {
 
   // Add Student Modal State
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [addStudentTab, setAddStudentTab] = useState<'search' | 'create'>('search');
+  const [searchStudentQuery, setSearchStudentQuery] = useState('');
+  const [searchedStudents, setSearchedStudents] = useState<any[]>([]);
+  const [searchingStudents, setSearchingStudents] = useState(false);
   const [studentFullName, setStudentFullName] = useState('');
   const [studentEmail, setStudentEmail] = useState('');
   const [submittingStudent, setSubmittingStudent] = useState(false);
@@ -202,6 +207,61 @@ export default function TrainerPortalPage() {
       setActionMessage({ type: 'error', text: 'Network error stopping attendance session.' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSearchStudents = useCallback(async (query: string) => {
+    if (!selectedBatchId) return;
+    setSearchingStudents(true);
+    try {
+      const res = await fetch(`/api/students/search?q=${encodeURIComponent(query)}&batchId=${selectedBatchId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setSearchedStudents(data.students || []);
+        }
+      }
+    } catch {
+      // Ignore search error
+    } finally {
+      setSearchingStudents(false);
+    }
+  }, [selectedBatchId]);
+
+  useEffect(() => {
+    if (showAddStudentModal && selectedBatchId) {
+      handleSearchStudents(searchStudentQuery);
+    }
+  }, [showAddStudentModal, selectedBatchId, searchStudentQuery, handleSearchStudents]);
+
+  const handleEnrollExistingStudent = async (student: any) => {
+    if (!selectedBatchId) return;
+    setSubmittingStudent(true);
+    try {
+      const res = await fetch(`/api/trainer/batches/${selectedBatchId}/students`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: student.displayName,
+          email: student.email,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setActionMessage({
+          type: 'success',
+          text: data.message || `Student "${student.displayName}" enrolled successfully!`,
+        });
+        setShowAddStudentModal(false);
+        await loadTrainerData();
+      } else {
+        setActionMessage({ type: 'error', text: data.error || 'Failed to enroll student.' });
+      }
+    } catch {
+      setActionMessage({ type: 'error', text: 'Network error enrolling student.' });
+    } finally {
+      setSubmittingStudent(false);
     }
   };
 
@@ -614,7 +674,8 @@ export default function TrainerPortalPage() {
       {/* ========================================================================= */}
       {showAddStudentModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-5 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in duration-200">
+            {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-blue-600" />
@@ -629,55 +690,160 @@ export default function TrainerPortalPage() {
               </button>
             </div>
 
-            <form onSubmit={handleAddStudent} className="space-y-4 text-xs">
-              <div className="p-3 bg-blue-50 border border-blue-200/60 rounded-xl text-blue-900 font-medium">
-                Enrolling directly into batch: <strong>{currentBatchData?.batch?.name}</strong>
-              </div>
+            {/* Target Batch Banner */}
+            <div className="p-3 bg-blue-50 border border-blue-200/60 rounded-xl text-blue-900 font-medium text-xs flex items-center justify-between">
+              <div>Enrolling into batch: <strong>{currentBatchData?.batch?.name}</strong></div>
+              <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-mono font-bold">
+                {currentBatchData?.batch?.code}
+              </span>
+            </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 block">Student Full Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Aarav Patel"
-                  value={studentFullName}
-                  onChange={(e) => setStudentFullName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-medium"
-                />
-              </div>
+            {/* 2 Clear Tabs: Option 1 (Search Existing) & Option 2 (Create New) */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600">
+              <button
+                type="button"
+                onClick={() => setAddStudentTab('search')}
+                className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                  addStudentTab === 'search'
+                    ? 'bg-white text-blue-600 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Search className="w-3.5 h-3.5" />
+                <span>Search Existing Students</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddStudentTab('create')}
+                className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                  addStudentTab === 'create'
+                    ? 'bg-white text-blue-600 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Create New Student</span>
+              </button>
+            </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 block">Student Email Address *</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="e.g. aarav.patel@student.edu"
-                  value={studentEmail}
-                  onChange={(e) => setStudentEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-medium"
-                />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Existing student accounts will be automatically reused without duplicate registrations.
-                </p>
-              </div>
+            {/* OPTION 1: SEARCH EXISTING STUDENTS */}
+            {addStudentTab === 'search' && (
+              <div className="space-y-3 text-xs">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Search by student name or email..."
+                    value={searchStudentQuery}
+                    onChange={(e) => setSearchStudentQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-medium text-xs bg-slate-50 focus:bg-white"
+                  />
+                </div>
 
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAddStudentModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingStudent}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-sm"
-                >
-                  {submittingStudent ? 'Enrolling...' : 'Add Student'}
-                </button>
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                  {searchingStudents ? (
+                    <div className="py-6 text-center text-slate-400 font-medium">Searching students...</div>
+                  ) : searchedStudents.length === 0 ? (
+                    <div className="py-6 text-center text-slate-400 space-y-1">
+                      <p className="font-semibold">No students found matching &quot;{searchStudentQuery}&quot;.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddStudentTab('create');
+                          setStudentFullName(searchStudentQuery);
+                        }}
+                        className="text-blue-600 hover:underline font-bold text-xs"
+                      >
+                        Create as a new student instead &rarr;
+                      </button>
+                    </div>
+                  ) : (
+                    searchedStudents.map((student) => (
+                      <div
+                        key={student.id}
+                        className="p-3 border border-slate-200 rounded-xl bg-white hover:border-slate-300 flex items-center justify-between gap-3 transition-all"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold flex items-center justify-center shrink-0 text-xs">
+                            {student.displayName?.charAt(0) || 'S'}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-bold text-[#0F172A] truncate text-xs">{student.displayName}</div>
+                            <div className="text-[11px] text-slate-500 truncate">{student.email}</div>
+                          </div>
+                        </div>
+
+                        <div>
+                          {student.isAlreadyEnrolled ? (
+                            <span className="px-2.5 py-1 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-bold shrink-0">
+                              Enrolled
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleEnrollExistingStudent(student)}
+                              disabled={submittingStudent}
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-lg text-xs shadow-xs transition-all shrink-0"
+                            >
+                              {submittingStudent ? 'Adding...' : 'Add to Batch'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </form>
+            )}
+
+            {/* OPTION 2: CREATE NEW STUDENT */}
+            {addStudentTab === 'create' && (
+              <form onSubmit={handleAddStudent} className="space-y-4 text-xs">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 block">Student Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Amit Patil"
+                    value={studentFullName}
+                    onChange={(e) => setStudentFullName(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 block">Student Email Address *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. amit.patil@student.edu"
+                    value={studentEmail}
+                    onChange={(e) => setStudentEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-medium"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    If this email already exists, their account will be safely enrolled into this batch without duplicating records.
+                  </p>
+                </div>
+
+                <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddStudentModal(false)}
+                    className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingStudent}
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-sm"
+                  >
+                    {submittingStudent ? 'Creating & Enrolling...' : 'Create & Enroll'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
