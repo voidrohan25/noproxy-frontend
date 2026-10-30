@@ -11,18 +11,21 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   async rewrites() {
-    // When deployed on Vercel, forward API calls to the Render backend service
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:10000';
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${backendUrl}/api/:path*`,
-      },
-      {
-        source: '/backend-health',
-        destination: `${backendUrl}/health`,
-      },
-    ];
+    // Only forward to external Render backend if explicitly configured with an external HTTPS URL
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
+    if (backendUrl && !backendUrl.includes('localhost') && !backendUrl.includes('127.0.0.1')) {
+      return [
+        {
+          source: '/backend-api/:path*',
+          destination: `${backendUrl}/api/:path*`,
+        },
+        {
+          source: '/backend-health',
+          destination: `${backendUrl}/health`,
+        },
+      ];
+    }
+    return [];
   },
   async headers() {
     return [
