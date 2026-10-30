@@ -5,11 +5,11 @@ import { generateQRChallenge, generateQRCodeDataUrl } from '@/lib/qr/token';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { sessionId, institutionId } = body;
+    let { sessionId, institutionId } = body;
 
-    if (!sessionId || !institutionId) {
+    if (!sessionId) {
       return NextResponse.json(
-        { error: 'Missing sessionId or institutionId' },
+        { error: 'Missing required sessionId parameter' },
         { status: 400 }
       );
     }
@@ -17,6 +17,10 @@ export async function POST(req: NextRequest) {
     const session = db.getSession(sessionId);
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    if (!institutionId) {
+      institutionId = session.institutionId || '11111111-1111-1111-1111-111111111111';
     }
 
     if (session.sessionStatus !== 'ACTIVE') {
