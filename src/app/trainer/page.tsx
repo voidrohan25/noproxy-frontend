@@ -106,7 +106,7 @@ export default function TrainerPortalPage() {
 
     const pollStatus = async () => {
       try {
-        const res = await fetch(`/api/sessions/${activeSession.id}/status`);
+        const res = await fetch(`/api/sessions/status?sessionId=${activeSession.id}`);
         if (res.ok) {
           const data = await res.json();
           if (data.success) {
