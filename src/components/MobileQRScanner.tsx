@@ -77,17 +77,17 @@ export const MobileQRScanner: React.FC<ScannerProps> = ({
         (err) => {
           // If browser denies permission or indoors with weak fix, provide classroom default
           setGpsStatus({
-            lat: 19.0760, // Lab 402 coordinates
-            lng: 72.8777,
+            lat: 18.5196, // Classroom coordinates (Pune)
+            lng: 73.8554,
             accuracy: 15,
             loading: false,
             error: err.message,
           });
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
       );
     } else {
-      setGpsStatus({ lat: 19.0760, lng: 72.8777, accuracy: 15, loading: false });
+      setGpsStatus({ lat: 18.5196, lng: 73.8554, accuracy: 15, loading: false });
     }
   }, []);
 
@@ -219,9 +219,20 @@ export const MobileQRScanner: React.FC<ScannerProps> = ({
     setScanResult(null);
 
     try {
+      // Retrieve or initialize persistent mobile device identity
+      let persistentDeviceCred = 'cred-mobile-phone-bound';
+      if (typeof window !== 'undefined') {
+        let stored = localStorage.getItem('noproxy_device_credential_id');
+        if (!stored) {
+          stored = `cred-mobile-${Math.random().toString(36).substring(2, 10)}`;
+          localStorage.setItem('noproxy_device_credential_id', stored);
+        }
+        persistentDeviceCred = stored;
+      }
+
       const coords = {
-        latitude: gpsStatus.lat || 19.0760,
-        longitude: gpsStatus.lng || 72.8777,
+        latitude: gpsStatus.lat || 18.5196,
+        longitude: gpsStatus.lng || 73.8554,
         accuracy: gpsStatus.accuracy || 15,
       };
 
@@ -233,7 +244,7 @@ export const MobileQRScanner: React.FC<ScannerProps> = ({
           studentId,
           rawToken: tokenToSubmit,
           studentCoords: coords,
-          deviceCredentialId: 'cred-mobile-phone-bound',
+          deviceCredentialId: persistentDeviceCred,
           localAuthConfirmed: true,
         }),
       });
