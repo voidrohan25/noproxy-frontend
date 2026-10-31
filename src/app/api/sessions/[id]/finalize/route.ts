@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionForUserId } from '@/lib/auth/session';
 import { db } from '@/lib/db/mock-db';
 
 export async function POST(
@@ -6,15 +7,32 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: sessionId } = await params;
-    const body = await req.json();
-    const { actorId } = body;
-
-    if (!actorId) {
-      return NextResponse.json({ error: 'Missing actorId for authorization audit' }, { status: 400 });
+    const userId = req.cookies.get('noproxy_session_user')?.value;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: Session missing' }, { status: 401 });
     }
 
-    const result = db.finalizeSession(sessionId, actorId);
+    const session = getSessionForUserId(userId);
+    if (!session || (session.role !== 'TRAINER' && session.role !== 'ADMIN')) {
+      return NextResponse.json({ error: 'Unauthorized: Only authorized Trainers or Administrators can finalize sessions' }, { status: 403 });
+    }
+
+    const { id: sessionId } = await params;
+    const attSession = db.getSession(sessionId);
+    if (!attSession) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    if (session.role === 'TRAINER') {
+      const isAssigned = Array.from(db.trainerAssignments.values()).some(
+        (a) => a.trainerId === userId && a.batchId === attSession.batchId && a.status === 'ACTIVE'
+      );
+      if (!isAssigned && attSession.createdBy !== userId) {
+        return NextResponse.json({ error: 'Forbidden: You are not authorized to finalize this session' }, { status: 403 });
+      }
+    }
+
+    const result = db.finalizeSession(sessionId, userId);
 
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 400 });

@@ -1,12 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionForUserId } from '@/lib/auth/session';
 import { db } from '@/lib/db/mock-db';
 
 export async function GET(req: NextRequest) {
   try {
+    const userId = req.cookies.get('noproxy_session_user')?.value;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: Session missing' }, { status: 401 });
+    }
+
+    const session = getSessionForUserId(userId);
+    if (!session || (session.role !== 'ADMIN' && session.role !== 'TRAINER')) {
+      return NextResponse.json({ error: 'Unauthorized: Admin or Trainer access required' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const batchId = searchParams.get('batchId');
 
     if (batchId) {
+      if (session.role === 'TRAINER') {
+        const isAssigned = Array.from(db.trainerAssignments.values()).some(
+          (a) => a.trainerId === userId && a.batchId === batchId && a.status === 'ACTIVE'
+        );
+        if (!isAssigned) {
+          return NextResponse.json({ error: 'Forbidden: You are not assigned to view students in this batch' }, { status: 403 });
+        }
+      }
+
       const students = db.getBatchEnrolledStudents(batchId);
       return NextResponse.json({
         success: true,
@@ -16,6 +36,11 @@ export async function GET(req: NextRequest) {
           email: s.student.email,
         })),
       });
+    }
+
+    // Listing all institute students is restricted to ADMIN
+    if (session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden: Viewing institute-wide directory is restricted to Administrators' }, { status: 403 });
     }
 
     // List all students across the institute
@@ -56,6 +81,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = req.cookies.get('noproxy_session_user')?.value;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: Session missing' }, { status: 401 });
+    }
+
+    const session = getSessionForUserId(userId);
+    if (!session || (session.role !== 'ADMIN' && session.role !== 'TRAINER')) {
+      return NextResponse.json({ error: 'Unauthorized: Admin or Trainer access required' }, { status: 403 });
+    }
+
     const body = await req.json();
     const { batchId, fullName, email, studentIdNumber } = body;
 
@@ -66,14 +101,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (session.role === 'TRAINER') {
+      const isAssigned = Array.from(db.trainerAssignments.values()).some(
+        (a) => a.trainerId === userId && a.batchId === batchId && a.status === 'ACTIVE'
+      );
+      if (!isAssigned) {
+        return NextResponse.json({ error: 'Forbidden: You are not assigned to enroll students into this batch' }, { status: 403 });
+      }
+    }
+
     const studentEmail = email || `${fullName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@student.edu`;
 
     const result = db.enrollStudentByEmail({
       batchId,
       fullName: fullName.trim(),
       email: studentEmail.trim(),
-      actorId: 'admin',
-      actorRole: 'ADMIN',
+      actorId: userId,
+      actorRole: session.role,
     });
 
     if (!result.success) {

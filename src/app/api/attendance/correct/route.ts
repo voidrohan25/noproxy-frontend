@@ -1,17 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionForUserId } from '@/lib/auth/session';
 import { db } from '@/lib/db/mock-db';
 import { AttendanceStatus } from '@/lib/db/types';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { sessionId, studentId, newStatus, reason, actorId } = body;
+    const userId = req.cookies.get('noproxy_session_user')?.value;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: Session missing' }, { status: 401 });
+    }
 
-    if (!sessionId || !studentId || !newStatus || !reason || !actorId) {
+    const session = getSessionForUserId(userId);
+    if (!session || (session.role !== 'TRAINER' && session.role !== 'ADMIN')) {
+      return NextResponse.json({ error: 'Unauthorized: Only authorized Trainers or Administrators can correct attendance records' }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { sessionId, studentId, newStatus, reason } = body;
+
+    if (!sessionId || !studentId || !newStatus || !reason) {
       return NextResponse.json(
-        { error: 'Missing required parameters: sessionId, studentId, newStatus, reason, actorId' },
+        { error: 'Missing required parameters: sessionId, studentId, newStatus, reason' },
         { status: 400 }
       );
+    }
+
+    // Verify session exists and check trainer assignment if not admin
+    const attSession = db.getSession(sessionId);
+    if (!attSession) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    if (session.role === 'TRAINER') {
+      const isAssigned = Array.from(db.trainerAssignments.values()).some(
+        (a) => a.trainerId === userId && a.batchId === attSession.batchId && a.status === 'ACTIVE'
+      );
+      if (!isAssigned && attSession.createdBy !== userId) {
+        return NextResponse.json({ error: 'Forbidden: You are not assigned to manage attendance for this batch session' }, { status: 403 });
+      }
     }
 
     // Strict 3-status verification
@@ -30,7 +56,7 @@ export async function POST(req: NextRequest) {
       studentId,
       newStatus: newStatus as AttendanceStatus,
       reason,
-      actorId,
+      actorId: userId,
     });
 
     if (!result.success) {

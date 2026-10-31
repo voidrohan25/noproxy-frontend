@@ -1,11 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionForUserId } from '@/lib/auth/session';
 import { db } from '@/lib/db/mock-db';
 import { generateBatchAttendanceExcel } from '@/lib/excel/generator';
 
 export async function GET(req: NextRequest) {
   try {
+    const userId = req.cookies.get('noproxy_session_user')?.value;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: Session missing' }, { status: 401 });
+    }
+
+    const session = getSessionForUserId(userId);
+    if (!session || (session.role !== 'TRAINER' && session.role !== 'ADMIN')) {
+      return NextResponse.json({ error: 'Forbidden: Access restricted strictly to authorized Trainers and Administrators' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
-    const batchId = searchParams.get('batchId') || '77777777-7777-7777-7777-777777777771';
+    const batchId = searchParams.get('batchId');
+
+    if (!batchId) {
+      return NextResponse.json({ error: 'Missing batchId parameter' }, { status: 400 });
+    }
+
+    // If Trainer, verify assigned to this batch
+    if (session.role === 'TRAINER') {
+      const isAssigned = Array.from(db.trainerAssignments.values()).some(
+        (a) => a.trainerId === userId && a.batchId === batchId && a.status === 'ACTIVE'
+      );
+      if (!isAssigned) {
+        return NextResponse.json({ error: 'Forbidden: You are not authorized to export reports for this batch' }, { status: 403 });
+      }
+    }
 
     const exportData = db.getBatchExportData(batchId);
     if (!exportData) {

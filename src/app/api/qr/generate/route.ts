@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionForUserId } from '@/lib/auth/session';
 import { db } from '@/lib/db/mock-db';
 import { generateQRChallenge, generateQRCodeDataUrl } from '@/lib/qr/token';
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = req.cookies.get('noproxy_session_user')?.value;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: Session missing' }, { status: 401 });
+    }
+
+    const authSession = getSessionForUserId(userId);
+    if (!authSession || (authSession.role !== 'TRAINER' && authSession.role !== 'ADMIN')) {
+      return NextResponse.json({ error: 'Unauthorized: Only authorized Trainers or Administrators can generate attendance QR codes' }, { status: 403 });
+    }
+
     const body = await req.json();
     let { sessionId, institutionId } = body;
 
@@ -17,6 +28,15 @@ export async function POST(req: NextRequest) {
     const session = db.getSession(sessionId);
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    if (authSession.role === 'TRAINER') {
+      const isAssigned = Array.from(db.trainerAssignments.values()).some(
+        (a) => a.trainerId === userId && a.batchId === session.batchId && a.status === 'ACTIVE'
+      );
+      if (!isAssigned && session.createdBy !== userId) {
+        return NextResponse.json({ error: 'Forbidden: You are not assigned to generate QR codes for this batch session' }, { status: 403 });
+      }
     }
 
     if (!institutionId) {

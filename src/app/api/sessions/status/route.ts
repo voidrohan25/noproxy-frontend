@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionForUserId } from '@/lib/auth/session';
 import { db } from '@/lib/db/mock-db';
 
 export async function GET(req: NextRequest) {
   try {
+    const userId = req.cookies.get('noproxy_session_user')?.value;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: Session missing' }, { status: 401 });
+    }
+
+    const authSession = getSessionForUserId(userId);
+    if (!authSession) {
+      return NextResponse.json({ error: 'Unauthorized: Invalid session' }, { status: 401 });
+    }
+
     const sessionId = req.nextUrl.searchParams.get('sessionId');
     if (!sessionId) {
       return NextResponse.json({ error: 'Missing sessionId query parameter' }, { status: 400 });

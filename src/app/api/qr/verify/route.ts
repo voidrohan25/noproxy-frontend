@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionForUserId } from '@/lib/auth/session';
 import { verifyQRChallenge } from '@/lib/qr/token';
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = req.cookies.get('noproxy_session_user')?.value;
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: Session missing' }, { status: 401 });
+    }
+
+    const authSession = getSessionForUserId(userId);
+    if (!authSession) {
+      return NextResponse.json({ error: 'Unauthorized: Invalid session' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { rawToken, expectedSessionId } = body;
 

@@ -3,22 +3,14 @@ import { db } from '@/lib/db/mock-db';
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Resolve Authenticated Student from Secure Session Cookie
+    // 1. Resolve Authenticated Student from Secure Session Cookie or Bearer Token
     let authenticatedUserId = req.cookies.get('noproxy_session_user')?.value;
 
-    const body = await req.json();
-    const {
-      sessionId,
-      rawToken,
-      studentCoords,
-      deviceCredentialId,
-      localAuthConfirmed,
-      studentId: fallbackStudentId, // Permitted only for automated test suite or fallback
-    } = body;
-
-    // In testing or emulator environments, if cookie is not present, check fallback
-    if (!authenticatedUserId && fallbackStudentId) {
-      authenticatedUserId = fallbackStudentId;
+    if (!authenticatedUserId && req.headers.get('authorization')) {
+      const authHeader = req.headers.get('authorization')!;
+      if (authHeader.startsWith('Bearer ')) {
+        authenticatedUserId = authHeader.substring(7).trim();
+      }
     }
 
     if (!authenticatedUserId) {
@@ -27,6 +19,15 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
+
+    const body = await req.json();
+    const {
+      sessionId,
+      rawToken,
+      studentCoords,
+      deviceCredentialId,
+      localAuthConfirmed,
+    } = body;
 
     if (!sessionId || !rawToken) {
       return NextResponse.json(
